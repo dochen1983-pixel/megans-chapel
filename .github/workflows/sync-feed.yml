@@ -1,0 +1,62 @@
+# Copies the family-approved messages from the Prayer Garden website into prayers.json,
+# which GitHub Pages serves to the VRChat world. The website only ever returns approved
+# messages, and no password or token is needed for this.
+name: Sync prayers feed
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"   # GitHub may run this a little later than asked when it is busy
+  workflow_dispatch:         # "Run workflow" button for an immediate update
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-prayers-feed
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download approved messages
+        run: curl -fsS --retry 3 --max-time 30 -o /tmp/feed.json "https://megans-chapel-prayers.dochen1983.workers.dev/prayers.json"
+
+      - name: Check and update prayers.json
+        id: update
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess, time
+          new = json.load(open('/tmp/feed.json', encoding='utf-8'))
+          assert new.get('version') == 1 and isinstance(new.get('prayers'), list), 'unexpected feed format'
+          for p in new['prayers']:
+              assert set(p) == {'id', 'name', 'message', 'date', 'type'}, 'unexpected entry fields'
+          try:
+              old = json.load(open('prayers.json', encoding='utf-8'))
+          except Exception:
+              old = None
+          changed = old is None or old.get('prayers') != new['prayers']
+          # GitHub pauses scheduled jobs in repos with no commits for 60 days, so refresh monthly anyway.
+          last = subprocess.run(['git', 'log', '-1', '--format=%ct', '--', 'prayers.json'], capture_output=True, text=True).stdout.strip()
+          if not changed and (not last or time.time() - int(last) > 25 * 86400):
+              changed = True
+          if changed:
+              with open('prayers.json', 'w', encoding='utf-8') as f:
+                  json.dump(new, f, ensure_ascii=False, indent=1)
+                  f.write('\n')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write('changed=%s\ncount=%d\n' % ('true' if changed else 'false', len(new['prayers'])))
+          print('changed' if changed else 'no change', len(new['prayers']), 'approved messages')
+          PY
+
+      - name: Commit
+        if: steps.update.outputs.changed == 'true'
+        run: |
+          git config user.name "Megan's Chapel"
+          git config user.email "prayer-garden@users.noreply.github.com"
+          git add prayers.json
+          git commit -m "Update prayers feed (${{ steps.update.outputs.count }} approved messages)"
+          git push
