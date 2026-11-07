@@ -21,6 +21,8 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main   # always start from the latest copy, even when a run is re-run later
 
       - name: Download approved messages
         run: curl -fsS --retry 3 --max-time 30 -o /tmp/feed.json "https://megans-chapel-prayers.dochen1983.workers.dev/prayers.json"
@@ -59,4 +61,4 @@ jobs:
           git config user.email "prayer-garden@users.noreply.github.com"
           git add prayers.json
           git commit -m "Update prayers feed (${{ steps.update.outputs.count }} approved messages)"
-          git push
+          git push || { git pull --rebase origin main && git push; }
