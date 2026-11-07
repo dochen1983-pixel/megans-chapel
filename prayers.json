@@ -1,13 +1,5 @@
 {
  "version": 1,
- "updated": "2026-11-07T17:49:43Z",
- "prayers": [
-  {
-   "id": "p_setuptest01",
-   "name": "Setup test",
-   "message": "Test message from setup - this will be removed shortly.",
-   "date": "2026-11-07",
-   "type": "prayer"
-  }
- ]
+ "updated": "2026-11-07T19:43:19Z",
+ "prayers": []
 }
