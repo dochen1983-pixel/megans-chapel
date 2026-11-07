@@ -5,7 +5,7 @@ name: Sync prayers feed
 
 on:
   schedule:
-    - cron: "*/5 * * * *"   # GitHub may run this a little later than asked when it is busy
+    - cron: "7,22,37,52 * * * *"   # every 15 min, off the busy top of the hour; GitHub may still run it late
   workflow_dispatch:         # "Run workflow" button for an immediate update
 
 permissions:
